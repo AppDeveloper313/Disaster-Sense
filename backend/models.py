@@ -96,3 +96,38 @@ class DisasterSenseResult:
             "alerts": [alert.to_dict() for alert in self.alerts],
             "errors": self.errors,
         }
+
+@dataclass
+class HeatwaveRiskAlert:
+    """Heatwave risk assessment for a city."""
+    city: str
+    risk_level: RiskLevel
+    max_temperature: float  # Celsius
+    forecast_summary: str
+    alert_triggered: bool = False
+    recommendation: str = ""
+    
+    def to_dict(self) -> dict:
+        return {
+            "city": self.city,
+            "risk_level": self.risk_level.value,
+            "max_temperature": round(self.max_temperature, 1),
+            "forecast_summary": self.forecast_summary,
+            "alert_triggered": self.alert_triggered,
+            "recommendation": self.recommendation,
+        }
+
+@dataclass
+class HeatwaveSenseResult:
+    timestamp: str
+    cities_analyzed: int
+    alerts: List[HeatwaveRiskAlert] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp,
+            "cities_analyzed": self.cities_analyzed,
+            "alerts": [alert.to_dict() for alert in self.alerts],
+            "errors": self.errors,
+        }

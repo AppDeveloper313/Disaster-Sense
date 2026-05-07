@@ -4,6 +4,7 @@ import '../models/city_alert.dart';
 import '../models/earthquake_alert.dart';
 import '../providers/disaster_provider.dart';
 import '../widgets/risk_badge.dart';
+import '../services/notification_service.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -35,6 +36,25 @@ class _AlertsScreenState extends State<AlertsScreen> {
           ],
         ),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            tooltip: 'Test Push Notification',
+            onPressed: () async {
+              final notificationService = NotificationService();
+              await notificationService.showRiskAlert(
+                id: 999,
+                title: 'High Earthquake Risk: Test City',
+                body: 'A high earthquake risk has been detected for your area. Please take precautions.',
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Test notification sent!')),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: Consumer<DisasterProvider>(
         builder: (context, provider, child) {

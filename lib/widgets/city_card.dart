@@ -20,6 +20,7 @@ class CityCard extends StatelessWidget {
     final theme = Theme.of(context);
     final floodRisk = data?.floodAlert?.riskLevel ?? RiskLevel.unknown;
     final quakeRisk = data?.earthquakeAlert?.riskLevel ?? RiskLevel.unknown;
+    final heatRisk = data?.heatwaveAlert?.riskLevel ?? RiskLevel.unknown;
 
     return Card(
       elevation: 2,
@@ -65,11 +66,19 @@ class CityCard extends StatelessWidget {
                     riskLevel: floodRisk,
                     label: 'Flood',
                     compact: true,
+                    iconData: Icons.water_drop_outlined,
                   ),
                   RiskBadge(
                     riskLevel: quakeRisk,
                     label: 'Earthquake',
                     compact: true,
+                    iconData: Icons.broken_image_outlined,
+                  ),
+                  RiskBadge(
+                    riskLevel: heatRisk,
+                    label: 'Heatwave',
+                    compact: true,
+                    iconData: Icons.local_fire_department_outlined,
                   ),
                 ],
               ),

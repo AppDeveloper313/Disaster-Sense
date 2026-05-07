@@ -1,5 +1,6 @@
 """FastAPI backend for DisasterSense."""
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional
 import logging
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from .config import PAKISTAN_CITIES
 from .data_fetcher import DisasterSenseDataFetcher
 from .earthquake_fetcher import EarthquakeSenseDataFetcher, EarthquakeRiskLevel
+from .heatwave_fetcher import HeatwaveDataFetcher
 from .models import RiskLevel
 from .database import init_db, get_db
 from . import crud
@@ -35,6 +37,7 @@ app.add_middleware(
 # Initialize fetchers
 fetcher = DisasterSenseDataFetcher()
 earthquake_fetcher = EarthquakeSenseDataFetcher()
+heatwave_fetcher = HeatwaveDataFetcher()
 
 VALID_CITIES = ["karachi", "lahore", "peshawar", "quetta", "sukkur"]
 
@@ -341,7 +344,174 @@ async def get_earthquake_alerts_only(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to fetch earthquake alerts")
 
 
+@app.get("/api/heatwave-risk")
+async def get_heatwave_risk(
+    city: Optional[str] = Query(default=None, description="Filter by city name"),
+):
+    """Get heatwave risk assessment."""
+    try:
+        result = await heatwave_fetcher.fetch_and_analyze()
+        if city:
+            city_lower = city.lower()
+            filtered_alerts = [a for a in result.alerts if a.city.lower() == city_lower]
+            if not filtered_alerts:
+                raise HTTPException(status_code=404, detail=f"No data found for {city}")
+            return {
+                "timestamp": result.timestamp,
+                "cities_analyzed": 1,
+                "alerts": [a.to_dict() for a in filtered_alerts],
+                "errors": result.errors,
+            }
+        return result.to_dict()
+    except Exception as e:
+        logger.error(f"Error fetching heatwave risk: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch heatwave data")
+
+@app.get("/api/weather/{city}")
+async def get_city_weather(city: str):
+    """
+    Get current weather metrics for a city.
+
+    Returns temperature, humidity, wind speed, weather code, and air quality (PM2.5, AQI).
+    Uses Open-Meteo current-weather and air-quality APIs (no API key required).
+    """
+    import httpx
+
+    city_lower = city.lower()
+    if city_lower not in VALID_CITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown city '{city}'. Valid options: {', '.join(VALID_CITIES)}"
+        )
+
+    coords = PAKISTAN_CITIES.get(city.title())
+    if not coords:
+        raise HTTPException(status_code=404, detail=f"Coordinates not found for {city}")
+
+    lat, lon = coords
+
+    weather_url = "https://api.open-meteo.com/v1/forecast"
+    aqi_url = "https://air-quality-api.open-meteo.com/v1/air-quality"
+
+    weather_params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,apparent_temperature",
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code",
+        "timezone": "Asia/Karachi",
+    }
+
+    aqi_params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "pm2_5,us_aqi",
+        "timezone": "Asia/Karachi",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            weather_resp, aqi_resp = await asyncio.gather(
+                client.get(weather_url, params=weather_params),
+                client.get(aqi_url, params=aqi_params),
+            )
+
+        weather_data = weather_resp.json().get("current", {})
+        aqi_data = aqi_resp.json().get("current", {})
+
+        weather_code = weather_data.get("weather_code", 0)
+        condition, condition_icon = _weather_code_to_condition(weather_code)
+
+        pm25 = aqi_data.get("pm2_5")
+        us_aqi = aqi_data.get("us_aqi")
+        aqi_category, aqi_color = _aqi_category(us_aqi)
+
+        daily_data = weather_resp.json().get("daily", {})
+        forecast = []
+        if "time" in daily_data:
+            for i in range(len(daily_data["time"])):
+                f_code = daily_data["weather_code"][i]
+                precip = daily_data["precipitation_sum"][i]
+                
+                # Open-Meteo sometimes returns Thunderstorm/Rain codes even if precipitation is 0.0mm.
+                # Override to Cloudy/Clear if there's no actual rain expected.
+                if precip < 0.1 and f_code in [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99]:
+                    f_code = 2 # Partly Cloudy
+                
+                f_cond, f_icon = _weather_code_to_condition(f_code)
+                forecast.append({
+                    "date": daily_data["time"][i],
+                    "temp_max_c": daily_data["temperature_2m_max"][i],
+                    "temp_min_c": daily_data["temperature_2m_min"][i],
+                    "precipitation_mm": precip,
+                    "condition": f_cond,
+                    "condition_icon": f_icon,
+                })
+
+        return {
+            "city": city.title(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "temperature_c": weather_data.get("temperature_2m"),
+            "feels_like_c": weather_data.get("apparent_temperature"),
+            "humidity_pct": weather_data.get("relative_humidity_2m"),
+            "wind_speed_kmh": weather_data.get("wind_speed_10m"),
+            "weather_code": weather_code,
+            "condition": condition,
+            "condition_icon": condition_icon,
+            "air_quality": {
+                "pm2_5": round(pm25, 1) if pm25 is not None else None,
+                "us_aqi": us_aqi,
+                "category": aqi_category,
+                "color": aqi_color,
+            },
+            "forecast": forecast,
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching weather for {city}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch weather data")
+
+
+def _weather_code_to_condition(code: int) -> tuple[str, str]:
+    """Map WMO weather code to a human-readable condition and emoji icon."""
+    if code == 0:
+        return "Clear Sky", "☀️"
+    elif code in (1, 2, 3):
+        return "Partly Cloudy", "⛅"
+    elif code in (45, 48):
+        return "Fog", "🌫️"
+    elif code in (51, 53, 55):
+        return "Drizzle", "🌦️"
+    elif code in (61, 63, 65):
+        return "Rain", "🌧️"
+    elif code in (71, 73, 75):
+        return "Snow", "❄️"
+    elif code in (80, 81, 82):
+        return "Rain Showers", "🌦️"
+    elif code in (95, 96, 99):
+        return "Thunderstorm", "⛈️"
+    else:
+        return "Unknown", "🌡️"
+
+
+def _aqi_category(aqi: int | None) -> tuple[str, str]:
+    """Return AQI category label and hex color."""
+    if aqi is None:
+        return "Unknown", "#9E9E9E"
+    if aqi <= 50:
+        return "Good", "#4CAF50"
+    elif aqi <= 100:
+        return "Moderate", "#FFC107"
+    elif aqi <= 150:
+        return "Unhealthy for Sensitive Groups", "#FF9800"
+    elif aqi <= 200:
+        return "Unhealthy", "#F44336"
+    elif aqi <= 300:
+        return "Very Unhealthy", "#9C27B0"
+    else:
+        return "Hazardous", "#7B1FA2"
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
