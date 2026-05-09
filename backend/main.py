@@ -39,7 +39,7 @@ fetcher = DisasterSenseDataFetcher()
 earthquake_fetcher = EarthquakeSenseDataFetcher()
 heatwave_fetcher = HeatwaveDataFetcher()
 
-VALID_CITIES = ["karachi", "lahore", "peshawar", "quetta", "sukkur"]
+VALID_CITIES = [name.lower() for name in PAKISTAN_CITIES.keys()]
 
 
 @app.on_event("startup")
@@ -176,15 +176,8 @@ def list_cities():
             "name": name,
             "latitude": coords[0],
             "longitude": coords[1],
-            "risk_type": risk_type,
         }
-        for name, coords, risk_type in [
-            ("Karachi", PAKISTAN_CITIES["Karachi"], "cyclone, heatwave"),
-            ("Lahore", PAKISTAN_CITIES["Lahore"], "heatwave, smog"),
-            ("Peshawar", PAKISTAN_CITIES["Peshawar"], "flash floods"),
-            ("Quetta", PAKISTAN_CITIES["Quetta"], "earthquake"),
-            ("Sukkur", PAKISTAN_CITIES["Sukkur"], "monsoon flooding"),
-        ]
+        for name, coords in PAKISTAN_CITIES.items()
     ]
     return {
         "count": len(cities),

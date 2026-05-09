@@ -172,7 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          final filtered = _applyFilters(provider.cities, provider);
+          // When searching, look through ALL cities; otherwise show only core cities
+          final sourceList = _query.isNotEmpty
+              ? provider.allCities
+              : provider.cities;
+          final filtered = _applyFilters(sourceList, provider);
 
           // ── Main layout: fixed header + scrollable list ────────────────────
           return Column(
@@ -196,9 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      // Location banner
-                      if (provider.currentCity != null)
-                        _LocationBanner(provider: provider),
+                      // ── Nearby cities section ──────────────────────────
+                      if (provider.nearestCities.isNotEmpty)
+                        _NearbyCitiesSection(provider: provider),
 
                       // Section header
                       Padding(
@@ -207,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Monitored Cities',
+                              'All Monitored Cities',
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: cs.onSurfaceVariant,
@@ -375,74 +379,208 @@ class _SearchFilterBar extends StatelessWidget {
   }
 }
 
-// ── Location banner ───────────────────────────────────────────────────────────
-class _LocationBanner extends StatelessWidget {
-  const _LocationBanner({required this.provider});
+// ── Nearby Cities Section ─────────────────────────────────────────────────────
+class _NearbyCitiesSection extends StatelessWidget {
+  const _NearbyCitiesSection({required this.provider});
   final DisasterProvider provider;
+
+  String _formatDistance(double km) {
+    if (km < 1) return '${(km * 1000).round()} m';
+    if (km < 10) return '${km.toStringAsFixed(1)} km';
+    return '${km.round()} km';
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final cityData = provider.getCityData(provider.currentCity!);
+    final nearby = provider.nearestCities;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Material(
-        color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: cityData == null
-              ? null
-              : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CityDetailScreen(
-                        cityName: provider.currentCity!,
-                        data: cityData,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.near_me, size: 18, color: cs.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nearest Cities',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Icon(Icons.my_location,
-                    color: cs.onPrimaryContainer, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    if (provider.currentCity != null)
                       Text(
-                        'Your Location',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onPrimaryContainer
-                              .withValues(alpha: 0.75),
+                        'Based on your location${provider.currentCity != null ? " near ${provider.currentCity}" : ""}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        provider.currentCity!,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onPrimaryContainer,
+                  ],
+                ),
+              ),
+              Icon(Icons.my_location, size: 16, color: cs.primary),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // City tiles
+          ...List.generate(nearby.length, (i) {
+            final nc = nearby[i];
+            final cityData = provider.getCityData(nc.name);
+            final risk = cityData?.overallRisk ?? RiskLevel.unknown;
+            final isFirst = i == 0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: isFirst
+                    ? cs.primaryContainer
+                    : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: cityData == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CityDetailScreen(
+                                cityName: nc.name,
+                                data: cityData,
+                              ),
+                            ),
+                          ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        // Rank circle
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isFirst
+                                ? cs.primary
+                                : cs.onSurfaceVariant.withValues(alpha: 0.15),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${i + 1}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isFirst
+                                  ? cs.onPrimary
+                                  : cs.onSurfaceVariant,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        // City info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    nc.name,
+                                    style:
+                                        theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: isFirst
+                                          ? cs.onPrimaryContainer
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                  if (isFirst) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            cs.primary.withValues(alpha: 0.2),
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'CLOSEST',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: isFirst
+                                              ? cs.onPrimaryContainer
+                                              : cs.primary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(Icons.straighten,
+                                      size: 12,
+                                      color: isFirst
+                                          ? cs.onPrimaryContainer
+                                              .withValues(alpha: 0.65)
+                                          : cs.onSurfaceVariant),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatDistance(nc.distanceKm),
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      color: isFirst
+                                          ? cs.onPrimaryContainer
+                                              .withValues(alpha: 0.75)
+                                          : cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Risk badge
+                        if (cityData != null)
+                          RiskBadge(
+                            riskLevel: risk,
+                            label: 'Risk',
+                            compact: true,
+                          ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right,
+                            size: 18,
+                            color: isFirst
+                                ? cs.onPrimaryContainer
+                                : cs.onSurfaceVariant),
+                      ],
+                    ),
                   ),
                 ),
-                if (cityData != null)
-                  RiskBadge(
-                    riskLevel: cityData.overallRisk,
-                    label: 'Risk',
-                    compact: true,
-                  ),
-              ],
-            ),
-          ),
-        ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
