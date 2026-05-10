@@ -30,17 +30,16 @@ db_name = os.getenv("DB_NAME")
 
 # 2. Safety check: make sure we actually found a password
 if not raw_password:
-    raise ValueError("DB_PASSWORD not found! Check your .env file.")
+    print("Warning: DB_PASSWORD not found! Using fallback SQLite database.")
+    DATABASE_URL = "sqlite:///./fallback.db"
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    # 3. Encode the password to handle the '@' and '$$'
+    safe_password = quote_plus(raw_password)
 
-# 3. Encode the password to handle the '@' and '$$'
-safe_password = quote_plus(raw_password)
-
-# 4. Construct the URL using 'safe_password'
-DATABASE_URL = f"mysql+pymysql://{user}:{safe_password}@{host}:{port}/{db_name}"
-
-engine = create_engine(DATABASE_URL)
-# Create engine
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+    # 4. Construct the URL using 'safe_password'
+    DATABASE_URL = f"mysql+pymysql://{user}:{safe_password}@{host}:{port}/{db_name}"
+    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

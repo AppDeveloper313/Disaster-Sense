@@ -151,11 +151,11 @@ async def get_flood_risk(
         result = await fetcher.fetch_and_analyze()
         
         # Save to database
-        try:
-            crud.save_run(db, result)
-            logger.info(f"Saved fetch run to database: {result.cities_analyzed} cities")
-        except Exception as db_error:
-            logger.error(f"Failed to save to database: {db_error}")
+        # try:
+        #     crud.save_run(db, result)
+        #     logger.info(f"Saved fetch run to database: {result.cities_analyzed} cities")
+        # except Exception as db_error:
+        #     logger.error(f"Failed to save to database: {db_error}")
 
         if city:
             city_lower = city.lower()
@@ -197,10 +197,10 @@ async def get_active_alerts(db: Session = Depends(get_db)):
         result = await fetcher.fetch_and_analyze()
         
         # Save to database
-        try:
-            crud.save_run(db, result)
-        except Exception as db_error:
-            logger.error(f"Failed to save to database: {db_error}")
+        # try:
+        #     crud.save_run(db, result)
+        # except Exception as db_error:
+        #     logger.error(f"Failed to save to database: {db_error}")
         
         elevated_alerts = [
             alert for alert in result.alerts
@@ -318,11 +318,11 @@ async def get_earthquake_risk(
         result = await earthquake_fetcher.fetch_and_analyze()
         
         # Save to database
-        try:
-            crud.save_earthquake_run(db, result)
-            logger.info(f"Saved earthquake run: {result.total_quakes_found} quakes found")
-        except Exception as db_error:
-            logger.error(f"Failed to save earthquake data: {db_error}")
+        # try:
+        #     crud.save_earthquake_run(db, result)
+        #     logger.info(f"Saved earthquake run: {result.total_quakes_found} quakes found")
+        # except Exception as db_error:
+        #     logger.error(f"Failed to save earthquake data: {db_error}")
         
         if city:
             city_lower = city.lower()
@@ -365,10 +365,10 @@ async def get_earthquake_alerts_only(db: Session = Depends(get_db)):
         result = await earthquake_fetcher.fetch_and_analyze()
         
         # Save to database
-        try:
-            crud.save_earthquake_run(db, result)
-        except Exception as db_error:
-            logger.error(f"Failed to save earthquake data: {db_error}")
+        # try:
+        #     crud.save_earthquake_run(db, result)
+        # except Exception as db_error:
+        #     logger.error(f"Failed to save earthquake data: {db_error}")
         
         elevated_alerts = [
             alert for alert in result.alerts
