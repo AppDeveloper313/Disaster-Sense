@@ -25,11 +25,26 @@ class CityDetailScreen extends StatefulWidget {
 class _CityDetailScreenState extends State<CityDetailScreen> {
   WeatherData? _weather;
   bool _weatherLoading = true;
+  String? _aiSummary;
+  bool _aiSummaryLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadWeather();
+    _loadAiSummary();
+  }
+
+  Future<void> _loadAiSummary() async {
+    if (!mounted) return;
+    setState(() => _aiSummaryLoading = true);
+    final summary = await ApiService().getCityAiSummary(widget.cityName);
+    if (mounted) {
+      setState(() {
+        _aiSummary = summary;
+        _aiSummaryLoading = false;
+      });
+    }
   }
 
   Future<void> _loadWeather() async {
@@ -56,8 +71,12 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              setState(() => _weatherLoading = true);
+              setState(() {
+                _weatherLoading = true;
+                _aiSummaryLoading = true;
+              });
               _loadWeather();
+              _loadAiSummary();
             },
           ),
         ],
@@ -109,6 +128,10 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
             ),
             const SizedBox(height: 16),
 
+            // ── AI Prediction ─────────────────────────────────────────────
+            _buildAiPredictionCard(context),
+            const SizedBox(height: 16),
+
             // ── Precipitation Forecast Sparkline ───────────────────────────
             if (_weather?.forecast.isNotEmpty == true) ...[
               Card(
@@ -156,6 +179,80 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── AI Prediction Card ─────────────────────────────────────────────────────
+  Widget _buildAiPredictionCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    if (_aiSummaryLoading) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+              ),
+              const SizedBox(width: 16),
+              Text('DisasterSense AI is analyzing...', style: theme.textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_aiSummary == null) {
+      return const SizedBox.shrink(); // Hide if failed
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cs.primary.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primaryContainer.withValues(alpha: 0.4),
+              cs.surface,
+            ],
+          ),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: cs.primary),
+                const SizedBox(width: 10),
+                Text(
+                  'AI Prediction',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _aiSummary!,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
           ],
         ),
       ),

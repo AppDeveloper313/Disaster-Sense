@@ -118,6 +118,13 @@ class DisasterSenseDataFetcher:
 
 def main():
     """Main entry point for running the data fetcher."""
+    import sys
+    if sys.stdout.encoding.lower() != 'utf-8':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
+            
     print("DisasterSense Data Fetcher")
     print("=" * 50)
     print("Fetching weather data for Pakistani cities...")

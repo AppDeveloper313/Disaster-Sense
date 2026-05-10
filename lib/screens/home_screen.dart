@@ -5,6 +5,7 @@ import '../providers/disaster_provider.dart';
 import '../widgets/city_card.dart';
 import '../widgets/risk_badge.dart';
 import 'city_detail_screen.dart';
+import 'advisor_chat_screen.dart';
 
 // ── Filter enum ───────────────────────────────────────────────────────────────
 enum _Filter { all, highestRisk, earthquakes, floods }
@@ -109,6 +110,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // ── AI Advisor button ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: _AdvisorButton(cs: cs),
+          ),
           Consumer<DisasterProvider>(
             builder: (_, provider, __) => provider.isLoading
                 ? Padding(
@@ -581,6 +587,100 @@ class _NearbyCitiesSection extends StatelessWidget {
             );
           }),
         ],
+      ),
+    );
+  }
+}
+
+// ── AI Advisor AppBar button ───────────────────────────────────────────────────
+
+class _AdvisorButton extends StatefulWidget {
+  final ColorScheme cs;
+  const _AdvisorButton({required this.cs});
+
+  @override
+  State<_AdvisorButton> createState() => _AdvisorButtonState();
+}
+
+class _AdvisorButtonState extends State<_AdvisorButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.12).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
+      child: Tooltip(
+        message: 'AI Disaster Advisor',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, a, __) {
+                final provider = context.read<DisasterProvider>();
+                final city = provider.currentCity ??
+                    (provider.nearestCities.isNotEmpty
+                        ? provider.nearestCities.first.name
+                        : null);
+                return AdvisorChatScreen(initialCity: city);
+              },
+              transitionsBuilder: (_, anim, __, child) => SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1, 0),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                child: child,
+              ),
+              transitionDuration: const Duration(milliseconds: 320),
+            ),
+          ),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(
+                colors: [cs.primary, cs.tertiary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.smart_toy_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
       ),
     );
   }

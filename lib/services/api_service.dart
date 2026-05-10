@@ -225,6 +225,28 @@ class ApiService {
       throw ApiException('Network error: $e');
     }
   }
+
+  Future<String?> getCityAiSummary(String city) async {
+    try {
+      final response = await http.post(
+        _uri('/api/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'message': 'Provide a concise disaster risk assessment summary for $city based on current data. Explain any active warnings or anomalies without generic fluff.',
+          'city': city,
+        }),
+      ).timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['response'] as String;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching AI summary: $e');
+      return null;
+    }
+  }
 }
 
 class ApiException implements Exception {
