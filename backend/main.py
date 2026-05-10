@@ -7,6 +7,7 @@ import logging
 
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from .config import PAKISTAN_CITIES
@@ -16,6 +17,7 @@ from .heatwave_fetcher import HeatwaveDataFetcher
 from .models import RiskLevel
 from .database import init_db, get_db
 from . import crud
+from .advisor.chat_handler import WeatherRiskChatHandler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,6 +40,14 @@ app.add_middleware(
 fetcher = DisasterSenseDataFetcher()
 earthquake_fetcher = EarthquakeSenseDataFetcher()
 heatwave_fetcher = HeatwaveDataFetcher()
+
+# Initialize multilingual chat advisor
+try:
+    chat_handler = WeatherRiskChatHandler()
+    logger.info("✅ Multilingual Weather Risk Advisor initialized")
+except Exception as e:
+    chat_handler = None
+    logger.warning(f"⚠️  Chat advisor unavailable: {e}")
 
 VALID_CITIES = [name.lower() for name in PAKISTAN_CITIES.keys()]
 
@@ -62,6 +72,7 @@ def root():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "endpoints": {
             "health": "/health",
+            "chat": "/api/chat",
             "flood_risk": "/api/flood-risk",
             "flood_alerts_only": "/api/flood-risk/alerts-only",
             "earthquake_risk": "/api/earthquake-risk",
@@ -81,6 +92,46 @@ def health_check():
         "service": "disaster-sense",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ─── Chat Advisor Endpoint ─────────────────────────────────────────────────────
+
+class ChatRequest(BaseModel):
+    """Request body for the chat endpoint."""
+    message: str = Field(..., min_length=1, max_length=2000, description="User message (English, Roman Urdu, or Urdu)")
+    city: Optional[str] = Field(default=None, description="Optional city hint")
+
+
+@app.post("/api/chat")
+async def chat_advisor(request: ChatRequest):
+    """
+    Multilingual Weather Risk Advisor.
+
+    Accepts messages in English, Roman Urdu, or Pure Urdu.
+    Detects language automatically and responds in the same language.
+
+    Uses a 3-tier resilient LLM backend:
+      - Tier 1: Google Gemini
+      - Tier 2: Groq (Llama 3-70b)
+      - Tier 3: OpenRouter
+
+    Enriches responses with contextual risk data from the Location Sensitivity Matrix.
+    """
+    if not chat_handler:
+        raise HTTPException(
+            status_code=503,
+            detail="Chat advisor is unavailable. Check API key configuration.",
+        )
+
+    try:
+        result = await chat_handler.handle_message(
+            user_message=request.message,
+            city_hint=request.city,
+        )
+        return result.to_dict()
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
 
 
 @app.get("/api/flood-risk")

@@ -29,6 +29,7 @@ class WeatherFetcher:
     
     def __init__(self):
         self.client: Optional[httpx.AsyncClient] = None
+        self._semaphore = asyncio.Semaphore(10)  # Limit concurrent requests to avoid rate limits
     
     async def __aenter__(self):
         self.client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
@@ -44,7 +45,8 @@ class WeatherFetcher:
         
         for attempt in range(MAX_RETRIES):
             try:
-                response = await self.client.get(url, params=params)
+                async with self._semaphore:
+                    response = await self.client.get(url, params=params)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
@@ -52,7 +54,7 @@ class WeatherFetcher:
                 logger.warning(f"HTTP error on attempt {attempt + 1}: {e}")
             except httpx.RequestError as e:
                 last_error = e
-                logger.warning(f"Request error on attempt {attempt + 1}: {e}")
+                logger.warning(f"Request error on attempt {attempt + 1}: {repr(e)}")
             
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(RETRY_DELAY * (attempt + 1))
