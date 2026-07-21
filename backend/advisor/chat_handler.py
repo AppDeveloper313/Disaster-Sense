@@ -15,7 +15,6 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-<<<<<<< HEAD
 try:
     from ..config import PAKISTAN_CITIES
     from .language_layer import (
@@ -38,18 +37,6 @@ except ImportError:
     )
     from advisor.resilient_llm import ResilientLLM, LLMResponse, LLMTier
     from advisor.risk_engine import ContextualRiskEngine, RiskContext, format_risk_context_for_llm
-=======
-from ..config import PAKISTAN_CITIES
-from .language_layer import (
-    Language,
-    detect_language,
-    get_response_translation_prompt,
-    get_translation_prompt,
-    quick_translate_to_english,
-)
-from .resilient_llm import ResilientLLM, LLMResponse, LLMTier
-from .risk_engine import ContextualRiskEngine, RiskContext, format_risk_context_for_llm
->>>>>>> a22b5114f96f8e209af893576a6ff6e4fd066bea
 
 logger = logging.getLogger(__name__)
 
