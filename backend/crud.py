@@ -4,9 +4,14 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from .database import CityAlert, FetchRun, EarthquakeRun, EarthquakeAlert
-from .models import DisasterSenseResult
-from .earthquake_fetcher import EarthquakeResult
+try:
+    from .database import CityAlert, FetchRun, EarthquakeRun, EarthquakeAlert
+    from .models import DisasterSenseResult
+    from .earthquake_fetcher import EarthquakeResult
+except ImportError:
+    from database import CityAlert, FetchRun, EarthquakeRun, EarthquakeAlert
+    from models import DisasterSenseResult
+    from earthquake_fetcher import EarthquakeResult
 
 
 def save_run(db: Session, result: DisasterSenseResult) -> FetchRun:

@@ -13,7 +13,10 @@ from typing import Dict, List, Optional, Tuple
 
 import httpx
 
-from ..config import PAKISTAN_CITIES, OPEN_METEO_FORECAST_URL, OPEN_METEO_ARCHIVE_URL
+try:
+    from ..config import PAKISTAN_CITIES, OPEN_METEO_FORECAST_URL, OPEN_METEO_ARCHIVE_URL
+except ImportError:
+    from config import PAKISTAN_CITIES, OPEN_METEO_FORECAST_URL, OPEN_METEO_ARCHIVE_URL
 
 logger = logging.getLogger(__name__)
 

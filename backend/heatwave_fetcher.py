@@ -3,9 +3,14 @@ from datetime import datetime, timezone
 from typing import List, Optional
 import logging
 
-from .config import PAKISTAN_CITIES
-from .models import HeatwaveRiskAlert, HeatwaveSenseResult, RiskLevel, WeatherForecast
-from .weather_fetcher import WeatherFetcher
+try:
+    from .config import PAKISTAN_CITIES
+    from .models import HeatwaveRiskAlert, HeatwaveSenseResult, RiskLevel, WeatherForecast
+    from .weather_fetcher import WeatherFetcher
+except ImportError:
+    from config import PAKISTAN_CITIES
+    from models import HeatwaveRiskAlert, HeatwaveSenseResult, RiskLevel, WeatherForecast
+    from weather_fetcher import WeatherFetcher
 
 logger = logging.getLogger(__name__)
 

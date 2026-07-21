@@ -6,10 +6,16 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from .config import PAKISTAN_CITIES
-from .flood_analyzer import FloodAnalyzer
-from .models import DisasterSenseResult, FloodRiskAlert
-from .weather_fetcher import WeatherFetcher, WeatherFetchError
+try:
+    from .config import PAKISTAN_CITIES
+    from .flood_analyzer import FloodAnalyzer
+    from .models import DisasterSenseResult, FloodRiskAlert
+    from .weather_fetcher import WeatherFetcher, WeatherFetchError
+except ImportError:
+    from config import PAKISTAN_CITIES
+    from flood_analyzer import FloodAnalyzer
+    from models import DisasterSenseResult, FloodRiskAlert
+    from weather_fetcher import WeatherFetcher, WeatherFetchError
 
 # Configure logging
 logging.basicConfig(

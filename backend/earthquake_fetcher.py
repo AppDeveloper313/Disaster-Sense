@@ -9,7 +9,10 @@ from typing import List, Optional, Tuple
 
 import httpx
 
-from .config import PAKISTAN_CITIES, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
+try:
+    from .config import PAKISTAN_CITIES, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
+except ImportError:
+    from config import PAKISTAN_CITIES, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
 
 logger = logging.getLogger(__name__)
 

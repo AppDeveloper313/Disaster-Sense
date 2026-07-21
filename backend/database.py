@@ -21,26 +21,26 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 # Load environment variables
 load_dotenv()
 
-# Database URL from environment
-user = os.getenv("DB_USER")
-raw_password = os.getenv("DB_PASSWORD")
-host = os.getenv("DB_HOST")
-port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
+# Database URL setup with SQLite fallback
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 2. Safety check: make sure we actually found a password
-if not raw_password:
-    raise ValueError("DB_PASSWORD not found! Check your .env file.")
+if not DATABASE_URL:
+    user = os.getenv("DB_USER")
+    raw_password = os.getenv("DB_PASSWORD")
+    if user and raw_password:
+        host = os.getenv("DB_HOST", "localhost")
+        port = os.getenv("DB_PORT", "3306")
+        db_name = os.getenv("DB_NAME", "disaster_sense")
+        safe_password = quote_plus(raw_password)
+        DATABASE_URL = f"mysql+pymysql://{user}:{safe_password}@{host}:{port}/{db_name}"
+    else:
+        DATABASE_URL = "sqlite:///./disaster_sense.db"
 
-# 3. Encode the password to handle the '@' and '$$'
-safe_password = quote_plus(raw_password)
-
-# 4. Construct the URL using 'safe_password'
-DATABASE_URL = f"mysql+pymysql://{user}:{safe_password}@{host}:{port}/{db_name}"
-
-engine = create_engine(DATABASE_URL)
 # Create engine
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

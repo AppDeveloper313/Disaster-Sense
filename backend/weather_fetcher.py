@@ -7,14 +7,24 @@ from typing import Optional, Tuple
 
 import httpx
 
-from .config import (
-    OPEN_METEO_ARCHIVE_URL,
-    OPEN_METEO_FORECAST_URL,
-    REQUEST_TIMEOUT,
-    MAX_RETRIES,
-    RETRY_DELAY,
-)
-from .models import DailyForecast, HistoricalRainfall, WeatherForecast
+try:
+    from .config import (
+        OPEN_METEO_ARCHIVE_URL,
+        OPEN_METEO_FORECAST_URL,
+        REQUEST_TIMEOUT,
+        MAX_RETRIES,
+        RETRY_DELAY,
+    )
+    from .models import DailyForecast, HistoricalRainfall, WeatherForecast
+except ImportError:
+    from config import (
+        OPEN_METEO_ARCHIVE_URL,
+        OPEN_METEO_FORECAST_URL,
+        REQUEST_TIMEOUT,
+        MAX_RETRIES,
+        RETRY_DELAY,
+    )
+    from models import DailyForecast, HistoricalRainfall, WeatherForecast
 
 logger = logging.getLogger(__name__)
 

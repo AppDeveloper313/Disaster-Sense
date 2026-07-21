@@ -3,13 +3,22 @@
 import logging
 from typing import Tuple
 
-from .config import FLOOD_THRESHOLDS
-from .models import (
-    FloodRiskAlert,
-    HistoricalRainfall,
-    RiskLevel,
-    WeatherForecast,
-)
+try:
+    from .config import FLOOD_THRESHOLDS
+    from .models import (
+        FloodRiskAlert,
+        HistoricalRainfall,
+        RiskLevel,
+        WeatherForecast,
+    )
+except ImportError:
+    from config import FLOOD_THRESHOLDS
+    from models import (
+        FloodRiskAlert,
+        HistoricalRainfall,
+        RiskLevel,
+        WeatherForecast,
+    )
 
 logger = logging.getLogger(__name__)
 

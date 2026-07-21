@@ -15,16 +15,28 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from ..config import PAKISTAN_CITIES
-from .language_layer import (
-    Language,
-    detect_language,
-    get_response_translation_prompt,
-    get_translation_prompt,
-    quick_translate_to_english,
-)
-from .resilient_llm import ResilientLLM, LLMResponse, LLMTier
-from .risk_engine import ContextualRiskEngine, RiskContext, format_risk_context_for_llm
+try:
+    from ..config import PAKISTAN_CITIES
+    from .language_layer import (
+        Language,
+        detect_language,
+        get_response_translation_prompt,
+        get_translation_prompt,
+        quick_translate_to_english,
+    )
+    from .resilient_llm import ResilientLLM, LLMResponse, LLMTier
+    from .risk_engine import ContextualRiskEngine, RiskContext, format_risk_context_for_llm
+except ImportError:
+    from config import PAKISTAN_CITIES
+    from advisor.language_layer import (
+        Language,
+        detect_language,
+        get_response_translation_prompt,
+        get_translation_prompt,
+        quick_translate_to_english,
+    )
+    from advisor.resilient_llm import ResilientLLM, LLMResponse, LLMTier
+    from advisor.risk_engine import ContextualRiskEngine, RiskContext, format_risk_context_for_llm
 
 logger = logging.getLogger(__name__)
 
