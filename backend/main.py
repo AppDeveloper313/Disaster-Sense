@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-<<<<<<< HEAD
 try:
     from .config import PAKISTAN_CITIES
     from .data_fetcher import DisasterSenseDataFetcher
@@ -29,16 +28,6 @@ except ImportError:
     from database import init_db, get_db
     import crud
     from advisor.chat_handler import WeatherRiskChatHandler
-=======
-from .config import PAKISTAN_CITIES
-from .data_fetcher import DisasterSenseDataFetcher
-from .earthquake_fetcher import EarthquakeSenseDataFetcher, EarthquakeRiskLevel
-from .heatwave_fetcher import HeatwaveDataFetcher
-from .models import RiskLevel
-from .database import init_db, get_db
-from . import crud
-from .advisor.chat_handler import WeatherRiskChatHandler
->>>>>>> a22b5114f96f8e209af893576a6ff6e4fd066bea
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

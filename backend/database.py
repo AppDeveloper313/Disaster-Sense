@@ -24,7 +24,6 @@ load_dotenv()
 # Database URL setup with SQLite fallback
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-<<<<<<< HEAD
 if not DATABASE_URL:
     user = os.getenv("DB_USER")
     raw_password = os.getenv("DB_PASSWORD")
@@ -41,19 +40,6 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 else:
-=======
-# 2. Safety check: make sure we actually found a password
-if not raw_password:
-    print("Warning: DB_PASSWORD not found! Using fallback SQLite database.")
-    DATABASE_URL = "sqlite:///./fallback.db"
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
-    # 3. Encode the password to handle the '@' and '$$'
-    safe_password = quote_plus(raw_password)
-
-    # 4. Construct the URL using 'safe_password'
-    DATABASE_URL = f"mysql+pymysql://{user}:{safe_password}@{host}:{port}/{db_name}"
->>>>>>> a22b5114f96f8e209af893576a6ff6e4fd066bea
     engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 # Session factory
