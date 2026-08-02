@@ -23,6 +23,10 @@ dependencies:
   url_launcher: ^6.3.2
   shared_preferences: ^2.5.5
   fl_chart: ^1.2.0
+  google_fonts: ^8.1.0
+  flutter_staggered_animations: ^1.1.1
+  animate_do: ^5.1.0
+  glassmorphism: ^3.0.0
 
 dev_dependencies:
   flutter_test:

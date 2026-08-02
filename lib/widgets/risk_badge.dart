@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
 import '../models/city_alert.dart';
 
 /// Returns a pair of (background, foreground) colors for [level] that are
@@ -46,37 +47,55 @@ class RiskBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bg, fg) = _riskColors(context, riskLevel);
 
-    return AnimatedContainer(
+    Widget badge = AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 12,
-        vertical: compact ? 4 : 6,
+        horizontal: compact ? 10 : 14,
+        vertical: compact ? 6 : 8,
       ),
       decoration: BoxDecoration(
-        color: bg,
+        color: bg.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withValues(alpha: 0.4), width: 1),
+        border: Border.all(color: fg.withValues(alpha: 0.8), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: fg.withValues(alpha: 0.3),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             iconData ?? riskLevel.icon,
-            size: compact ? 13 : 15,
+            size: compact ? 14 : 16,
             color: fg,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Text(
             compact ? riskLevel.label : '$label: ${riskLevel.label}',
             style: TextStyle(
               color: fg,
               fontWeight: FontWeight.w700,
-              fontSize: compact ? 11 : 12,
-              letterSpacing: 0.2,
+              fontSize: compact ? 12 : 13,
+              letterSpacing: 0.3,
             ),
           ),
         ],
       ),
     );
+
+    // Add pulse animation for high risk
+    if (riskLevel == RiskLevel.high) {
+      return Pulse(
+        infinite: true,
+        duration: const Duration(seconds: 2),
+        child: badge,
+      );
+    }
+
+    return badge;
   }
 }

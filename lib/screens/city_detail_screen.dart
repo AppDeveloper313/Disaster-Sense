@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../models/city_alert.dart';
 import '../models/earthquake_alert.dart';
 import '../models/heatwave_alert.dart';
@@ -64,548 +65,578 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
     final quakeAlert = widget.data?.earthquakeAlert;
     final heatAlert = widget.data?.heatwaveAlert;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.cityName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _weatherLoading = true;
-                _aiSummaryLoading = true;
-              });
-              _loadWeather();
-              _loadAiSummary();
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Current Weather ───────────────────────────────────────────
-            _buildWeatherCard(context),
-            const SizedBox(height: 16),
-
-            // ── Risk Summary ──────────────────────────────────────────────
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Risk Assessment',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        RiskBadge(
-                          riskLevel: floodAlert?.riskLevel ?? RiskLevel.unknown,
-                          label: 'Flood',
-                        ),
-                        RiskBadge(
-                          riskLevel: quakeAlert?.riskLevel ?? RiskLevel.unknown,
-                          label: 'Earthquake',
-                        ),
-                        RiskBadge(
-                          riskLevel: heatAlert?.riskLevel ?? RiskLevel.unknown,
-                          label: 'Heatwave',
-                        ),
-                      ],
-                    ),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          title: Text(widget.cityName, style: const TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                setState(() {
+                  _weatherLoading = true;
+                  _aiSummaryLoading = true;
+                });
+                _loadWeather();
+                _loadAiSummary();
+              },
+            ),
+          ],
+        ),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildWeatherCard(context),
+                    const SizedBox(height: 16),
+                    _buildRiskSummaryCard(context, floodAlert, quakeAlert, heatAlert),
+                  ]),
+                ),
+              ),
+              SliverAppBar(
+                pinned: true,
+                primary: false,
+                automaticallyImplyLeading: false,
+                toolbarHeight: 0,
+                backgroundColor: theme.scaffoldBackgroundColor.withValues(alpha: 0.9),
+                bottom: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+                  indicator: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 1.5),
+                  ),
+                  splashBorderRadius: BorderRadius.circular(30),
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  tabs: const [
+                    Tab(text: 'AI Prediction'),
+                    Tab(text: 'Specific Risks'),
+                    Tab(text: 'Forecasts & AQI'),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // ── AI Prediction ─────────────────────────────────────────────
-            _buildAiPredictionCard(context),
-            const SizedBox(height: 16),
-
-            // ── Precipitation Forecast Sparkline ───────────────────────────
-            if (_weather?.forecast.isNotEmpty == true) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ForecastSparkline(
-                    forecast: _weather!.forecast,
-                    label: '7-Day Temperature Forecast',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ── Flood Information ─────────────────────────────────────────
-            if (floodAlert != null) ...[
-              _buildFloodCard(context, floodAlert),
-              const SizedBox(height: 16),
-            ],
-
-            // ── Earthquake Information ────────────────────────────────────
-            if (quakeAlert != null) ...[
-              _buildQuakeCard(context, quakeAlert),
-              const SizedBox(height: 16),
-            ],
-
-            // ── Heatwave Information ──────────────────────────────────────
-            if (heatAlert != null) ...[
-              _buildHeatCard(context, heatAlert),
-              const SizedBox(height: 16),
-            ],
-
-            // ── Air Quality ───────────────────────────────────────────────
-            if (_weather?.airQuality != null)
-              _buildAirQualityCard(context, _weather!.airQuality!),
-
-            // ── Last Updated ──────────────────────────────────────────────
-            if (floodAlert?.timestamp != null || quakeAlert?.timestamp != null)
-              Padding(
+            ];
+          },
+          body: TabBarView(
+            children: [
+              // Tab 1: AI Prediction
+              ListView(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Last updated: ${_formatTimestamp(floodAlert?.timestamp ?? quakeAlert?.timestamp ?? '')}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                children: [
+                  _buildAiPredictionCard(context),
+                ],
               ),
-          ],
+              // Tab 2: Specific Risks
+              ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (floodAlert != null) ...[
+                    _buildFloodCard(context, floodAlert),
+                    const SizedBox(height: 16),
+                  ],
+                  if (quakeAlert != null) ...[
+                    _buildQuakeCard(context, quakeAlert),
+                    const SizedBox(height: 16),
+                  ],
+                  if (heatAlert != null) ...[
+                    _buildHeatCard(context, heatAlert),
+                    const SizedBox(height: 16),
+                  ],
+                  if (floodAlert == null && quakeAlert == null && heatAlert == null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          "No specific disaster risks active.",
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Tab 3: Forecasts
+              ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (_weather?.forecast.isNotEmpty == true) ...[
+                    _GlassCard(
+                      child: ForecastSparkline(
+                        forecast: _weather!.forecast,
+                        label: '7-Day Temperature Forecast',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_weather?.airQuality != null) ...[
+                    _buildAirQualityCard(context, _weather!.airQuality!),
+                    const SizedBox(height: 16),
+                  ],
+                  if (floodAlert?.timestamp != null || quakeAlert?.timestamp != null)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Last updated: ${_formatTimestamp(floodAlert?.timestamp ?? quakeAlert?.timestamp ?? '')}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── AI Prediction Card ─────────────────────────────────────────────────────
+  Widget _buildRiskSummaryCard(BuildContext context, CityAlert? floodAlert, EarthquakeAlert? quakeAlert, HeatwaveAlert? heatAlert) {
+    final theme = Theme.of(context);
+    final overallRisk = widget.data?.overallRisk ?? RiskLevel.unknown;
+    Color glowColor;
+    switch (overallRisk) {
+      case RiskLevel.high: glowColor = Colors.redAccent; break;
+      case RiskLevel.medium: glowColor = Colors.orangeAccent; break;
+      case RiskLevel.low: glowColor = Colors.greenAccent; break;
+      case RiskLevel.unknown: glowColor = theme.colorScheme.primary; break;
+    }
+
+    return _GlassCard(
+      glowColor: glowColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined, color: glowColor),
+              const SizedBox(width: 8),
+              Text(
+                'Risk Assessment',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              RiskBadge(
+                riskLevel: floodAlert?.riskLevel ?? RiskLevel.unknown,
+                label: 'Flood',
+              ),
+              RiskBadge(
+                riskLevel: quakeAlert?.riskLevel ?? RiskLevel.unknown,
+                label: 'Earthquake',
+              ),
+              RiskBadge(
+                riskLevel: heatAlert?.riskLevel ?? RiskLevel.unknown,
+                label: 'Heatwave',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAiPredictionCard(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     if (_aiSummaryLoading) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-              ),
-              const SizedBox(width: 16),
-              Text('DisasterSense AI is analyzing...', style: theme.textTheme.bodyMedium),
-            ],
-          ),
+      return _GlassCard(
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+            ),
+            const SizedBox(width: 16),
+            Text('DisasterSense AI is analyzing...', style: theme.textTheme.bodyMedium),
+          ],
         ),
       );
     }
 
-    if (_aiSummary == null) {
-      return const SizedBox.shrink(); // Hide if failed
-    }
+    if (_aiSummary == null) return const SizedBox.shrink();
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.primary.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              cs.primaryContainer.withValues(alpha: 0.4),
-              cs.surface,
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.2),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
           ),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  cs.primaryContainer.withValues(alpha: 0.5),
+                  cs.surface.withValues(alpha: 0.3),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.5), width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.auto_awesome, color: cs.primary),
-                const SizedBox(width: 10),
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: cs.primary, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'AI Prediction',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text(
-                  'AI Prediction',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: cs.primary,
+                  _aiSummary!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.6,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              _aiSummary!,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Weather Card ───────────────────────────────────────────────────────────
   Widget _buildWeatherCard(BuildContext context) {
     final theme = Theme.of(context);
 
     if (_weatherLoading) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 16),
-              Text('Loading weather…', style: theme.textTheme.bodyMedium),
-            ],
-          ),
+      return _GlassCard(
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 16),
+            Text('Loading weather…', style: theme.textTheme.bodyMedium),
+          ],
         ),
       );
     }
 
     if (_weather == null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Icons.cloud_off, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 12),
-              Text('Weather data unavailable',
-                  style: theme.textTheme.bodyMedium),
-            ],
-          ),
+      return _GlassCard(
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 12),
+            Text('Weather data unavailable', style: theme.textTheme.bodyMedium),
+          ],
         ),
       );
     }
 
     final w = _weather!;
-    return Card(
-      color: theme.colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(w.conditionIcon, style: const TextStyle(fontSize: 52)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        w.temperatureC != null
-                            ? '${w.temperatureC!.toStringAsFixed(1)}°C'
-                            : '--°C',
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
+    return _GlassCard(
+      glowColor: theme.colorScheme.tertiary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(w.conditionIcon, style: const TextStyle(fontSize: 64)),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      w.temperatureC != null ? '${w.temperatureC!.toStringAsFixed(1)}°C' : '--°C',
+                      style: theme.textTheme.displayMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
                       ),
-                      Text(
-                        w.condition,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer
-                              .withValues(alpha: 0.8),
-                        ),
+                    ),
+                    Text(
+                      w.condition,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        letterSpacing: 0.5,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _weatherMetric(
-                  context,
-                  Icons.thermostat,
-                  'Feels Like',
-                  w.feelsLikeC != null
-                      ? '${w.feelsLikeC!.toStringAsFixed(1)}°C'
-                      : '--',
-                ),
-                _weatherMetric(
-                  context,
-                  Icons.water_drop,
-                  'Humidity',
-                  w.humidityPct != null ? '${w.humidityPct}%' : '--',
-                ),
-                _weatherMetric(
-                  context,
-                  Icons.air,
-                  'Wind',
-                  w.windSpeedKmh != null
-                      ? '${w.windSpeedKmh!.toStringAsFixed(0)} km/h'
-                      : '--',
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _weatherMetric(context, Icons.thermostat, 'Feels Like', w.feelsLikeC != null ? '${w.feelsLikeC!.toStringAsFixed(1)}°C' : '--'),
+              _weatherMetric(context, Icons.water_drop, 'Humidity', w.humidityPct != null ? '${w.humidityPct}%' : '--'),
+              _weatherMetric(context, Icons.air, 'Wind', w.windSpeedKmh != null ? '${w.windSpeedKmh!.toStringAsFixed(0)} km/h' : '--'),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _weatherMetric(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _weatherMetric(BuildContext context, IconData icon, String label, String value) {
     final theme = Theme.of(context);
-    final onContainer = theme.colorScheme.onPrimaryContainer;
+    final onSurface = theme.colorScheme.onSurface;
     return Column(
       children: [
-        Icon(icon, color: onContainer.withValues(alpha: 0.7), size: 20),
-        const SizedBox(height: 4),
+        Icon(icon, color: onSurface.withValues(alpha: 0.7), size: 24),
+        const SizedBox(height: 8),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: onContainer,
+            color: onSurface,
           ),
         ),
         Text(
           label,
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: onContainer.withValues(alpha: 0.7)),
+          style: theme.textTheme.labelMedium?.copyWith(color: onSurface.withValues(alpha: 0.7)),
         ),
       ],
     );
   }
 
-  // ── Air Quality Card ───────────────────────────────────────────────────────
   Widget _buildAirQualityCard(BuildContext context, AirQuality aqi) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.air, color: aqi.color),
-                const SizedBox(width: 8),
-                Text(
-                  'Air Quality',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+    return _GlassCard(
+      glowColor: aqi.color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.air, color: aqi.color, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Air Quality',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: aqi.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: aqi.color.withValues(alpha: 0.5), width: 1.5),
                 ),
-              ],
-            ),
-            const Divider(height: 24),
-            Row(
-              children: [
-                // AQI gauge chip
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: aqi.color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: aqi.color),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        aqi.usAqi != null ? '${aqi.usAqi}' : '--',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: aqi.color,
-                          fontWeight: FontWeight.bold,
-                        ),
+                child: Column(
+                  children: [
+                    Text(
+                      aqi.usAqi != null ? '${aqi.usAqi}' : '--',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: aqi.color,
+                        fontWeight: FontWeight.w900,
                       ),
+                    ),
+                    Text(
+                      'AQI',
+                      style: theme.textTheme.labelMedium?.copyWith(color: aqi.color, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      aqi.category,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: aqi.color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (aqi.pm25 != null) ...[
+                      const SizedBox(height: 8),
                       Text(
-                        'AQI',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: aqi.color),
+                        'PM2.5: ${aqi.pm25!.toStringAsFixed(1)} µg/m³',
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        aqi.category,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: aqi.color,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (aqi.pm25 != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'PM2.5: ${aqi.pm25!.toStringAsFixed(1)} µg/m³',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  // ── Flood Card ─────────────────────────────────────────────────────────────
   Widget _buildFloodCard(BuildContext context, CityAlert floodAlert) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.water_drop, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Flood Risk Details',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            _buildInfoRow(
-              context,
-              'Cumulative Rainfall (3-day)',
-              '${floodAlert.rainfall3dayMm.toStringAsFixed(1)} mm',
-              Icons.water,
-            ),
-            const SizedBox(height: 12),
-            Text('Forecast Summary', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 4),
-            Text(
-              floodAlert.forecastSummary.isNotEmpty
-                  ? floodAlert.forecastSummary
-                  : 'No forecast available',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            _buildRecommendationBox(
-              context,
-              floodAlert.recommendation,
-              floodAlert.riskLevel.color,
-            ),
-          ],
-        ),
+    return _GlassCard(
+      glowColor: floodAlert.riskLevel.color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.water_drop, color: floodAlert.riskLevel.color),
+              const SizedBox(width: 8),
+              Text(
+                'Flood Risk Details',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow(context, 'Cumulative Rainfall (3-day)', '${floodAlert.rainfall3dayMm.toStringAsFixed(1)} mm', Icons.water),
+          const SizedBox(height: 16),
+          Text('Forecast Summary', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            floodAlert.forecastSummary.isNotEmpty ? floodAlert.forecastSummary : 'No forecast available',
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          _buildRecommendationBox(context, floodAlert.recommendation, floodAlert.riskLevel.color),
+        ],
       ),
     );
   }
 
-  // ── Earthquake Card ────────────────────────────────────────────────────────
   Widget _buildQuakeCard(BuildContext context, EarthquakeAlert quakeAlert) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.landslide, color: theme.colorScheme.secondary),
-                const SizedBox(width: 8),
-                Text(
-                  'Earthquake Risk Details',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            if (quakeAlert.earthquake != null) ...[
-              _buildInfoRow(
-                context,
-                'Magnitude',
-                'M${quakeAlert.earthquake!.magnitude.toStringAsFixed(1)}',
-                Icons.show_chart,
+    return _GlassCard(
+      glowColor: quakeAlert.riskLevel.color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.landslide, color: quakeAlert.riskLevel.color),
+              const SizedBox(width: 8),
+              Text(
+                'Earthquake Risk Details',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              _buildInfoRow(
-                context,
-                'Depth',
-                '${quakeAlert.earthquake!.depthKm.toStringAsFixed(1)} km',
-                Icons.arrow_downward,
-              ),
-              const SizedBox(height: 8),
-              _buildInfoRow(
-                context,
-                'Distance from City',
-                '${quakeAlert.distanceKm.toStringAsFixed(0)} km',
-                Icons.place,
-              ),
-              const SizedBox(height: 12),
-              Text('Location', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 4),
-              Text(quakeAlert.earthquake!.locationDescription,
-                  style: theme.textTheme.bodyMedium),
-            ] else ...[
-              const Text('No significant seismic activity detected.'),
             ],
+          ),
+          const SizedBox(height: 16),
+          if (quakeAlert.earthquake != null) ...[
+            _buildInfoRow(context, 'Magnitude', 'M${quakeAlert.earthquake!.magnitude.toStringAsFixed(1)}', Icons.show_chart),
+            const SizedBox(height: 8),
+            _buildInfoRow(context, 'Depth', '${quakeAlert.earthquake!.depthKm.toStringAsFixed(1)} km', Icons.arrow_downward),
+            const SizedBox(height: 8),
+            _buildInfoRow(context, 'Distance', '${quakeAlert.distanceKm.toStringAsFixed(0)} km', Icons.place),
             const SizedBox(height: 16),
-            _buildRecommendationBox(
-              context,
-              quakeAlert.recommendation,
-              quakeAlert.riskLevel.color,
-            ),
+            Text('Location', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(quakeAlert.earthquake!.locationDescription, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
+          ] else ...[
+            const Text('No significant seismic activity detected.'),
           ],
-        ),
+          const SizedBox(height: 16),
+          _buildRecommendationBox(context, quakeAlert.recommendation, quakeAlert.riskLevel.color),
+        ],
       ),
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  Widget _buildRecommendationBox(
-      BuildContext context, String text, Color color) {
+  Widget _buildHeatCard(BuildContext context, HeatwaveAlert alert) {
+    final theme = Theme.of(context);
+    return _GlassCard(
+      glowColor: alert.riskLevel.color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_fire_department, color: alert.riskLevel.color),
+              const SizedBox(width: 8),
+              Text(
+                'Heatwave Warning',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(alert.forecastSummary, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
+          const SizedBox(height: 16),
+          _buildRecommendationBox(context, alert.recommendation, alert.riskLevel.color),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationBox(BuildContext context, String text, Color color) {
+    if (text.isEmpty) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_outline, color: color, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.lightbulb_outline, color: color, size: 22),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              text.isNotEmpty ? text : 'No recommendation available',
-              style: Theme.of(context).textTheme.bodyMedium,
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -613,23 +644,19 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(
-      BuildContext context, String label, String value, IconData icon) {
+  Widget _buildInfoRow(BuildContext context, String label, String value, IconData icon) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
+        Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 12),
         Text(
           '$label: ',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         Text(
           value,
-          style:
-              theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -644,65 +671,47 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
       return timestamp;
     }
   }
+}
 
-  Widget _buildHeatCard(BuildContext context, HeatwaveAlert alert) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  final Color? glowColor;
+
+  const _GlassCard({required this.child, this.glowColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = glowColor ?? cs.primary;
     
-    return Card(
-      color: alert.alertTriggered
-          ? cs.errorContainer.withValues(alpha: 0.3)
-          : null,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.local_fire_department,
-                  color: alert.alertTriggered ? cs.error : cs.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Heatwave Warning',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: alert.alertTriggered ? cs.error : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              alert.forecastSummary,
-              style: theme.textTheme.bodyMedium,
-            ),
-            if (alert.recommendation.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline, size: 20, color: cs.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        alert.recommendation,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.15),
+            blurRadius: 15,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: color.withValues(alpha: 0.4),
+                width: 1.5,
               ),
-            ],
-          ],
+            ),
+            child: child,
+          ),
         ),
       ),
     );

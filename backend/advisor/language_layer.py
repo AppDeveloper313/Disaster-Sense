@@ -61,7 +61,6 @@ ROMAN_URDU_MARKERS = {
     "nahi", "nahin", "nah", "haan", "ji",
     "sheher", "shehr", "ilaka", "ghar",
     "log", "logon", "awam",
-    "pakistan", "karachi", "lahore", "islamabad",
 }
 
 # ── Urdu script Unicode range ────────────────────────────────────────────────

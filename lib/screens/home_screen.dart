@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../models/city_alert.dart';
 import '../providers/disaster_provider.dart';
 import '../widgets/city_card.dart';
@@ -203,76 +204,87 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => provider.fetchAllData(),
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      // ── Nearby cities section ──────────────────────────
-                      if (provider.nearestCities.isNotEmpty)
-                        _NearbyCitiesSection(provider: provider),
-
-                      // Section header
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'All Monitored Cities',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            if (provider.lastUpdated != null)
-                              Text(
-                                _fmt(provider.lastUpdated!),
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant),
-                              ),
-                          ],
+                  child: AnimationLimiter(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: AnimationConfiguration.toStaggeredList(
+                        duration: const Duration(milliseconds: 500),
+                        childAnimationBuilder: (widget) => SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            child: widget,
+                          ),
                         ),
-                      ),
+                        children: [
+                          // ── Nearby cities section ──────────────────────────
+                          if (provider.nearestCities.isNotEmpty)
+                            _NearbyCitiesSection(provider: provider),
 
-                      // Empty state or city cards
-                      if (filtered.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 64),
-                          child: Center(
-                            child: Column(
+                          // Section header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Icon(Icons.search_off,
-                                    size: 64, color: cs.onSurfaceVariant),
-                                const SizedBox(height: 12),
                                 Text(
-                                  _query.isNotEmpty
-                                      ? 'No cities match "$_query"'
-                                      : 'No cities match this filter',
-                                  style: theme.textTheme.bodyLarge
-                                      ?.copyWith(color: cs.onSurfaceVariant),
+                                  'All Monitored Cities',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
+                                if (provider.lastUpdated != null)
+                                  Text(
+                                    _fmt(provider.lastUpdated!),
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(color: cs.onSurfaceVariant),
+                                  ),
                               ],
                             ),
                           ),
-                        )
-                      else
-                        ...filtered.map((city) {
-                          final data = provider.getCityData(city);
-                          return CityCard(
-                            cityName: city,
-                            data: data,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CityDetailScreen(
-                                  cityName: city,
-                                  data: data,
+
+                          // Empty state or city cards
+                          if (filtered.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 64),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.search_off,
+                                        size: 64, color: cs.onSurfaceVariant),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _query.isNotEmpty
+                                          ? 'No cities match "$_query"'
+                                          : 'No cities match this filter',
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(color: cs.onSurfaceVariant),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          );
-                        }),
-                      const SizedBox(height: 24),
-                    ],
+                            )
+                          else
+                            ...filtered.map((city) {
+                              final data = provider.getCityData(city);
+                              return CityCard(
+                                cityName: city,
+                                data: data,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CityDetailScreen(
+                                      cityName: city,
+                                      data: data,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          const SizedBox(height: 100), // Add padding for floating bottom nav
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -391,7 +403,7 @@ class _NearbyCitiesSection extends StatelessWidget {
   final DisasterProvider provider;
 
   String _formatDistance(double km) {
-    if (km < 1) return '${(km * 1000).round()} m';
+    if (km < 15) return 'Current Area';
     if (km < 10) return '${km.toStringAsFixed(1)} km';
     return '${km.round()} km';
   }
@@ -526,7 +538,7 @@ class _NearbyCitiesSection extends StatelessWidget {
                                             BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        'CLOSEST',
+                                        nc.distanceKm < 15.0 ? 'IN CITY' : 'CLOSEST',
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           fontSize: 9,
@@ -657,27 +669,32 @@ class _AdvisorButtonState extends State<_AdvisorButton>
             ),
           ),
           child: Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [cs.primary, cs.tertiary],
+                colors: [cs.primary, cs.secondary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
+                  color: cs.secondary.withValues(alpha: 0.6),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
                   color: cs.primary.withValues(alpha: 0.4),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  blurRadius: 30,
+                  spreadRadius: 5,
                 ),
               ],
             ),
             child: const Icon(
               Icons.smart_toy_rounded,
               color: Colors.white,
-              size: 22,
+              size: 24,
             ),
           ),
         ),
