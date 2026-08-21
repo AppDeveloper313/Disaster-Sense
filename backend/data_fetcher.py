@@ -46,37 +46,42 @@ class DisasterSenseDataFetcher:
     async def fetch_and_analyze(self) -> DisasterSenseResult:
         """
         Fetch weather data for all cities and analyze flood risk.
-        
-        Returns:
-            DisasterSenseResult with alerts for all cities
+
+        Uses batch API calls — only 2 HTTP requests for all cities combined,
+        eliminating the 429 Too Many Requests errors from the old per-city approach.
         """
         timestamp = datetime.now(timezone.utc).isoformat()
         alerts: List[FloodRiskAlert] = []
         errors: List[str] = []
-        
+
         async with WeatherFetcher() as fetcher:
-            tasks = []
-            city_names = []
-            
-            for city, (lat, lon) in self.cities.items():
-                task = fetcher.fetch_city_weather_data(city, lat, lon)
-                tasks.append(task)
-                city_names.append(city)
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for city, result in zip(city_names, results):
-                if isinstance(result, Exception):
-                    error_msg = f"Failed to fetch data for {city}: {result}"
-                    logger.error(error_msg)
-                    errors.append(error_msg)
+            try:
+                forecasts, historicals = await asyncio.gather(
+                    fetcher.fetch_all_forecasts(self.cities),
+                    fetcher.fetch_all_historical(self.cities),
+                )
+            except WeatherFetchError as e:
+                error_msg = f"Batch weather fetch failed: {e}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+                return DisasterSenseResult(
+                    timestamp=timestamp,
+                    cities_analyzed=0,
+                    alerts=[],
+                    errors=errors,
+                )
+
+            for city in self.cities:
+                forecast = forecasts.get(city)
+                historical = historicals.get(city)
+
+                if forecast is None or historical is None:
+                    errors.append(f"Missing data for {city}")
                     continue
-                
+
                 try:
-                    forecast, historical = result
                     alert = self.analyzer.analyze(forecast, historical)
                     alerts.append(alert)
-                    
                     logger.info(
                         f"{city}: Risk={alert.risk_level.value}, "
                         f"Rainfall={alert.cumulative_rainfall_3day:.1f}mm"
@@ -85,7 +90,7 @@ class DisasterSenseDataFetcher:
                     error_msg = f"Analysis error for {city}: {e}"
                     logger.error(error_msg)
                     errors.append(error_msg)
-        
+
         return DisasterSenseResult(
             timestamp=timestamp,
             cities_analyzed=len(alerts),
