@@ -6,11 +6,11 @@ import logging
 try:
     from .config import PAKISTAN_CITIES
     from .models import HeatwaveRiskAlert, HeatwaveSenseResult, RiskLevel, WeatherForecast
-    from .weather_fetcher import WeatherFetcher
+    from .weather_fetcher import WeatherFetcher, WeatherFetchError
 except ImportError:
     from config import PAKISTAN_CITIES
     from models import HeatwaveRiskAlert, HeatwaveSenseResult, RiskLevel, WeatherForecast
-    from weather_fetcher import WeatherFetcher
+    from weather_fetcher import WeatherFetcher, WeatherFetchError
 
 logger = logging.getLogger(__name__)
 
@@ -64,23 +64,21 @@ class HeatwaveDataFetcher:
         errors: List[str] = []
         
         async with WeatherFetcher() as fetcher:
-            tasks = []
-            city_names = []
-            
-            for city, (lat, lon) in self.cities.items():
-                task = fetcher.fetch_forecast(city, lat, lon)
-                tasks.append(task)
-                city_names.append(city)
-                
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for city, result in zip(city_names, results):
-                if isinstance(result, Exception):
-                    errors.append(f"Failed to fetch heatwave data for {city}: {result}")
-                    continue
-                    
+            try:
+                # Single batch request for all cities — prevents 429 rate limiting
+                forecasts = await fetcher.fetch_all_forecasts(self.cities)
+            except WeatherFetchError as e:
+                errors.append(f"Batch heatwave fetch failed: {e}")
+                return HeatwaveSenseResult(
+                    timestamp=timestamp,
+                    cities_analyzed=0,
+                    alerts=[],
+                    errors=errors,
+                )
+
+            for city, forecast in forecasts.items():
                 try:
-                    alert = self.analyzer.analyze(result)
+                    alert = self.analyzer.analyze(forecast)
                     alerts.append(alert)
                 except Exception as e:
                     errors.append(f"Heatwave analysis error for {city}: {e}")
@@ -91,3 +89,4 @@ class HeatwaveDataFetcher:
             alerts=alerts,
             errors=errors
         )
+
